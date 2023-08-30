@@ -1,1 +1,1 @@
-# CompBioinspirada
+# Computação Bioinspirada
