@@ -4,6 +4,7 @@
 # o maior possível. Como restrição, os itens não podem ser “quebrados”, ou seja, a decisão
 # consiste apenas em inserir ou não inserir um item na mochila.
 
+import random
 import numpy as np
 import re
 import time
@@ -18,14 +19,20 @@ class ITEM:
         self.id = id
         self.valor = valor
         self.peso = peso
-        self.flag = 0
 
 class MOCHILA:
-	def __init__(self, tamanho, capacidade, itens):
-		self.fitness = 0
+	def __init__(self, tamanho, capacidade):
 		self.tamanho = tamanho
 		self.capacidade = capacidade
-		self.itens = itens
+  
+class INDIVIDUO:
+	def __init__(self, vetorBinario):
+		self.vetorBinario = vetorBinario
+		self.fitness = 0
+		self.pesoAtual = 0
+
+def gerarNumAleatorio(N):
+    return random.randint(0, N-1)
  
 def defineMochila(arquivoDeEntrada):
 	with open(arquivoDeEntrada, "r") as arquivo:
@@ -41,26 +48,129 @@ def defineMochila(arquivoDeEntrada):
 		valor = int(numeros[1])
 		peso = int(numeros[2])
 		item = ITEM(id,valor,peso)
-		itens.append(item)
-  
-	mochila = MOCHILA(tamanho, capacidade, itens)
-	return mochila
+		itens.append(item) 
+ 
+	mochila = MOCHILA(tamanho, capacidade)
+	return mochila, itens
 
-def reproducao(arquivoDeEntrada):
-    mochila = defineMochila(arquivoDeEntrada)
+def incializaPopulacao(mochila, itens):
+    # Estou assumindo que a quantidade de itens e o tamanho da mochila podem ser diferentes
+    vetorBinario = [0 for i in range(len(itens))]
+    populacao = []
+    
+    for i in range(POPULACAO):
+        peso = 0; valor = 0; tamanho = 0
+        individuo = INDIVIDUO(vetorBinario)
+        
+        for j in range(mochila.tamanho):
+            pos = gerarNumAleatorio(len(itens))
+            individuo.vetorBinario[pos] = 1
+            
+            tamanho+=1
+            peso += itens[pos].peso
+            valor += itens[pos].valor
+            
+            # Assim que o peso máx for atingido paramos
+            if peso > mochila.capacidade:
+                peso -= itens[pos].peso
+                valor -= itens[pos].valor
+                tamanho -=1
+                individuo.vetorBinario[pos] = 0
+                break
+        
+        individuo.fitness = valor
+        individuo.pesoAtual = peso    
+        populacao.append(individuo)
+        
+    return populacao
+   
+def fitness(individuo, mochila, itens):
+    peso = 0; valor = 0;  tamanho = 0
+    
+    for i in range(len(itens)):
+        if individuo.itens[i] == 1:
+            tamanho +=1
+            peso += itens[i].peso
+            valor += itens[i].valor
+            
+    if tamanho <= mochila.tamanho and peso <= mochila.capacidade: 
+        individuo.pesoAtual = peso
+        individuo.fitness = valor
+        
+    return individuo
 
+def selecaoPorTorneio(populacao, melhor):
+    for i in range(1,TORNEIO):
+        individuo = populacao[gerarNumAleatorio(POPULACAO)]
+        if(individuo.fitness > melhor.fitness):
+            melhor = individuo
+    return melhor
+
+def recombinacaoUniforme(pai, mae):
+    filho = pai
+    
+    for i in range(len(pai.vetorBinario)):
+        if gerarNumAleatorio(2) == 1:
+            filho.vetorBinario[i] = pai.vetorBinario[i]
+        else:
+            filho.vetorBinario[i] = mae.vetorBinario[i]
+    
+    return filho
+        
+def mutacao(filho, itens):
+    probabilidade = gerarNumAleatorio(100)
+    
+    if probabilidade <= MUTACAO:
+        if filho.pesoAtual > filho.capacidade:
+            filho.itens.pop()
+        
+    return filho
+
+def reproducao(populacao, mochila, itens):
+    vetorBinario = [0 for i in range(len(itens))]
+    melhor = INDIVIDUO(vetorBinario)
+    novaPopulacao = []
+    
+    for i in range(POPULACAO):
+        pai = selecaoPorTorneio(populacao, INDIVIDUO(vetorBinario))
+        mae = selecaoPorTorneio(populacao, INDIVIDUO(vetorBinario))
+        filho = recombinacaoUniforme(pai,mae)
+        # filho = mutacao(filho, itens)
+        filho = fitness(filho)
+        
+        
+        if filho.fitness > melhor.fitness:
+            melhor = filho
+            
+        novaPopulacao.append(filho)
+        
+    return melhor, novaPopulacao
+
+def algoritmoGenetico(arquivoDeEntrada):
+    mochila, itens = defineMochila(arquivoDeEntrada)
+    populacao = incializaPopulacao(mochila, itens)
+    melhor = 0
+    
+    for i in range(GERACOES):
+        melhor, novaPopulacao = reproducao(populacao, mochila, itens)
+        populacao = novaPopulacao
+        print(f"Melhor resultado: {melhor.fitness}")
+        
+    return melhor.fitness
+        
 def main():
 	melhorResultado = 0
 
 	for i in range(1, 6):
 		arquivoDeEntrada = f"input/input{i}.in"
-		melhorResultado = reproducao(arquivoDeEntrada)
+		melhorResultado = algoritmoGenetico(arquivoDeEntrada)
 		saida = f"Instancia {i} : {melhorResultado}\n"
 		with open("output/dynamic.out", "a+") as arquivoDeSaida:
 			arquivoDeSaida.write(saida)
 
 if __name__ == '__main__': 
-	tempoInicial = time.time()
-	main()
-	tempoExecucao = time.time() - tempoInicial
-	print(f"Tempo gasto para execução: {tempoExecucao} segundos")
+    random.seed(0)
+    tempoInicial = time.time()
+    main()
+    tempoExecucao = time.time() - tempoInicial
+    print(f"Tempo gasto para execução: {tempoExecucao} segundos")
