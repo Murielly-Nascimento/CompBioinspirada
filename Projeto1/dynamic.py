@@ -36,7 +36,7 @@ def solve_knapsack_problem(file_path):
 def main():
     output_max_values = []
 
-    for iterator in range(1, 6):
+    for iterator in range(15, 17):
         input_file_path = f"input/input{iterator}.in"
         max_value = solve_knapsack_problem(input_file_path)
         output_max_values.append(max_value)

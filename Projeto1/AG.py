@@ -9,8 +9,8 @@ import numpy as np
 import re
 import time
 
-POPULACAO = 100
-GERACOES = 50
+POPULACAO = 50
+GERACOES = 25
 MUTACAO = 15
 TORNEIO = 3
 
@@ -19,6 +19,9 @@ class ITEM:
         self.id = id
         self.valor = valor
         self.peso = peso
+    
+    def __lt__(self, outro):
+        return self.peso < outro.peso
 
 class MOCHILA:
 	def __init__(self, tamanho, capacidade):
@@ -49,7 +52,8 @@ def defineMochila(arquivoDeEntrada):
 		peso = int(numeros[2])
 		item = ITEM(id,valor,peso)
 		itens.append(item) 
- 
+  
+	itens.sort()
 	mochila = MOCHILA(tamanho, capacidade)
 	return mochila, itens
 
@@ -88,7 +92,7 @@ def fitness(individuo, mochila, itens):
     peso = 0; valor = 0;  tamanho = 0
     
     for i in range(len(itens)):
-        if individuo.itens[i] == 1:
+        if individuo.vetorBinario[i] == 1:
             tamanho +=1
             peso += itens[i].peso
             valor += itens[i].valor
@@ -100,29 +104,45 @@ def fitness(individuo, mochila, itens):
     return individuo
 
 def selecaoPorTorneio(populacao, melhor):
-    for i in range(1,TORNEIO):
+    for i in range(1,TORNEIO-1):
         individuo = populacao[gerarNumAleatorio(POPULACAO)]
         if(individuo.fitness > melhor.fitness):
             melhor = individuo
     return melhor
 
-def recombinacaoUniforme(pai, mae):
-    filho = pai
-    
+def recombinacaoUniforme(pai, mae, filho, itens, mochila):
     for i in range(len(pai.vetorBinario)):
+        
+        if filho.pesoAtual >= mochila.capacidade:
+            break
+        
         if gerarNumAleatorio(2) == 1:
             filho.vetorBinario[i] = pai.vetorBinario[i]
         else:
-            filho.vetorBinario[i] = mae.vetorBinario[i]
+            filho.vetorBinario[i] = mae.vetorBinario[i] 
+            
+        if filho.vetorBinario[i] == 1:
+            filho.pesoAtual += itens[i].peso
     
     return filho
         
-def mutacao(filho, itens):
+def mutacao(filho, mochila, itens):
     probabilidade = gerarNumAleatorio(100)
     
     if probabilidade <= MUTACAO:
-        if filho.pesoAtual > filho.capacidade:
-            filho.itens.pop()
+        if filho.pesoAtual > mochila.capacidade:
+            for i in range(len(itens)):
+                if filho.vetorBinario[i] == 1:
+                    filho.vetorBinario[i] = 0
+                    filho.pesoAtual -= itens[i].peso
+                    break
+        
+        else:
+            for i in range(len(itens)):
+                if filho.vetorBinario[i] == 0:
+                    filho.vetorBinario[i] = 1
+                    filho.pesoAtual += itens[i].peso
+                    break
         
     return filho
 
@@ -134,9 +154,9 @@ def reproducao(populacao, mochila, itens):
     for i in range(POPULACAO):
         pai = selecaoPorTorneio(populacao, INDIVIDUO(vetorBinario))
         mae = selecaoPorTorneio(populacao, INDIVIDUO(vetorBinario))
-        filho = recombinacaoUniforme(pai,mae)
-        # filho = mutacao(filho, itens)
-        filho = fitness(filho)
+        filho = recombinacaoUniforme(pai,mae, INDIVIDUO(vetorBinario), itens, mochila)
+        filho = mutacao(filho, mochila, itens)
+        filho = fitness(filho, mochila, itens)
         
         
         if filho.fitness > melhor.fitness:
@@ -161,11 +181,11 @@ def algoritmoGenetico(arquivoDeEntrada):
 def main():
 	melhorResultado = 0
 
-	for i in range(1, 6):
+	for i in range(1, 17):
 		arquivoDeEntrada = f"input/input{i}.in"
 		melhorResultado = algoritmoGenetico(arquivoDeEntrada)
 		saida = f"Instancia {i} : {melhorResultado}\n"
-		with open("output/dynamic.out", "a+") as arquivoDeSaida:
+		with open("output/AG.out", "a+") as arquivoDeSaida:
 			arquivoDeSaida.write(saida)
 
 if __name__ == '__main__': 
